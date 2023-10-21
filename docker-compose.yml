@@ -1,0 +1,7 @@
+version: '3'
+services:
+  controller-5-12:
+    image: mbentley/omada-controller:5.12
+    ports:
+      - "8088:8088"
+      - "8043:8043"
