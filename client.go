@@ -76,19 +76,105 @@ func (c *omadaClient) GetToken() (*AccessTokenResponse, error) {
 	return tokenResponse, nil
 }
 
-func (c *omadaClient) GetRoleList() (string, error) {
+func (c *omadaClient) GetRoleList() (*GetRoleListResponse, error) {
 	path := fmt.Sprintf("%s/openapi/v1/%s/roles", c.baseUrl, c.omadaCId)
-	resp, err := c.httpClient.Get(path)
+	request, err := http.NewRequest("GET", path, nil)
+
+	token, err := c.GetToken()
 	if err != nil {
-		return "", err
+		return nil, err
+	}
+	request.Header.Set("Authorization", fmt.Sprintf("AccessToken=%s", token.Result.AccessToken))
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("http response error code %d: %s", resp.StatusCode, resp.Status)
+		return nil, fmt.Errorf("http response error code %d: %s", resp.StatusCode, resp.Status)
 	}
-	bytes, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+
+	roleListResponse := &GetRoleListResponse{}
+	err = json.Unmarshal(body, roleListResponse)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer resp.Body.Close()
-	return string(bytes), nil
+	return roleListResponse, nil
 }
+
+type GetRoleListResponse struct {
+	ErrorCode int    `json:"errorCode"`
+	Message   string `json:"msg"`
+	Result    []struct {
+		Id          string `json:"id"`
+		Name        string `json:"name"`
+		Type        int    `json:"type"`
+		DefaultRole bool   `json:"defaultRole"`
+		Source      int    `json:"source"`
+		Privilege   struct {
+			License          int `json:"license"`
+			GlobalDashboard  int `json:"globalDashboard"`
+			Dashboard        int `json:"dashboard"`
+			Devices          int `json:"devices"`
+			Adopt            int `json:"adopt"`
+			GlobalLog        int `json:"globalLog"`
+			Log              int `json:"log"`
+			LicenseBind      int `json:"licenseBind"`
+			Users            int `json:"users"`
+			Roles            int `json:"roles"`
+			SamlUsers        int `json:"samlUsers"`
+			SamlRoles        int `json:"samlRoles"`
+			SamlSSOs         int `json:"samlSsos"`
+			GlobalSetting    int `json:"globalSetting"`
+			ExportData       int `json:"exportData"`
+			GlobalExportData int `json:"globalExportData"`
+			ExportGlobalLog  int `json:"exportGlobalLog"`
+			Hotspot          int `json:"hotspot"`
+			Statics          int `json:"statics"`
+			Map              int `json:"map"`
+			Clients          int `json:"clients"`
+			Insight          int `json:"insight"`
+			Report           int `json:"report"`
+			Network          int `json:"network"`
+			DeviceAccount    int `json:"deviceAccount"`
+			Anomaly          int `json:"anomaly"`
+			Analyze          int `json:"analyze"`
+			SiteAnalyze      int `json:"siteAnalyze"`
+		} `json:"privilege"`
+	} `json:"result"`
+}
+
+//func (c *omadaClient) GetSiteList() (string, error) {
+//	path := fmt.Sprintf("%s/openapi/v1/%s/sites?pageSize=100&page=1", c.baseUrl, c.omadaCId)
+//	request, err := http.NewRequest("GET", path, nil)
+//
+//	token, err := c.GetToken()
+//	if err != nil {
+//		return "", err
+//	}
+//	request.Header.Set("Authorization", fmt.Sprintf("AccessToken=%s", token.Result.AccessToken))
+//
+//	resp, err := c.httpClient.Do(request)
+//	if err != nil {
+//		//log.Fatal(io.ReadAll(resp.Body))
+//		return "", err
+//	}
+//	if resp.StatusCode != http.StatusOK {
+//		body, err := io.ReadAll(resp.Body)
+//		if err != nil {
+//			return "", err
+//		}
+//		return "", fmt.Errorf("http response error code %d: %s %s", resp.StatusCode, resp.Status, body)
+//	}
+//	body, err := io.ReadAll(resp.Body)
+//	if err != nil {
+//		return "", err
+//	}
+//	defer resp.Body.Close()
+//	return string(body), nil
+//}
