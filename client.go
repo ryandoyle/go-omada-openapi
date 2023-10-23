@@ -7,17 +7,30 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 )
 
-//type OmadaClient interface {
-//}
-
 type omadaClient struct {
-	httpClient   *http.Client
-	omadaCId     string
-	baseUrl      string
-	clientId     string
-	clientSecret string
+	httpClient     *http.Client
+	omadaCId       string
+	baseUrl        string
+	clientId       string
+	clientSecret   string
+	accessTokenCtx *accessTokenCtx
+}
+
+type tokenState int64
+
+const (
+	TokenStateUninitialised tokenState = 0
+	TokenStateActive                   = 1
+)
+
+type accessTokenCtx struct {
+	token      string
+	tokenState tokenState
+	//ttl 		int
+	mu *sync.Mutex
 }
 
 func NewClient(baseUrl, omadaCId, clientId, clientSecret string, disableCertVerification bool) *omadaClient {
@@ -31,14 +44,21 @@ func NewClient(baseUrl, omadaCId, clientId, clientSecret string, disableCertVeri
 		baseUrl:      baseUrl,
 		clientSecret: clientSecret,
 		clientId:     clientId,
+		accessTokenCtx: &accessTokenCtx{
+			mu: &sync.Mutex{},
+		},
 	}
 	return &c
 }
 
-type AccessTokenResponse struct {
+type Envelope struct {
 	ErrorCode int    `json:"errorCode"`
 	Message   string `json:"msg"`
-	Result    struct {
+}
+
+type AccessTokenResponse struct {
+	Envelope
+	Result struct {
 		AccessToken  string `json:"accessToken"`
 		TokenType    string `json:"tokenType"`
 		ExpiresIn    int    `json:"expiresIn"`
@@ -80,30 +100,11 @@ func (c *omadaClient) GetRoleList() (*GetRoleListResponse, error) {
 	path := fmt.Sprintf("%s/openapi/v1/%s/roles", c.baseUrl, c.omadaCId)
 	request, err := http.NewRequest("GET", path, nil)
 
-	token, err := c.GetToken()
-	if err != nil {
-		return nil, err
-	}
-	request.Header.Set("Authorization", fmt.Sprintf("AccessToken=%s", token.Result.AccessToken))
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := c.httpClient.Do(request)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("http response error code %d: %s", resp.StatusCode, resp.Status)
-	}
-	body, err := io.ReadAll(resp.Body)
-
 	roleListResponse := &GetRoleListResponse{}
-	err = json.Unmarshal(body, roleListResponse)
+	err = c.httpDoWrapped(request, roleListResponse)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
 	return roleListResponse, nil
 }
 
@@ -149,32 +150,114 @@ type GetRoleListResponse struct {
 	} `json:"result"`
 }
 
-//func (c *omadaClient) GetSiteList() (string, error) {
-//	path := fmt.Sprintf("%s/openapi/v1/%s/sites?pageSize=100&page=1", c.baseUrl, c.omadaCId)
-//	request, err := http.NewRequest("GET", path, nil)
-//
-//	token, err := c.GetToken()
-//	if err != nil {
-//		return "", err
-//	}
-//	request.Header.Set("Authorization", fmt.Sprintf("AccessToken=%s", token.Result.AccessToken))
-//
-//	resp, err := c.httpClient.Do(request)
-//	if err != nil {
-//		//log.Fatal(io.ReadAll(resp.Body))
-//		return "", err
-//	}
-//	if resp.StatusCode != http.StatusOK {
-//		body, err := io.ReadAll(resp.Body)
-//		if err != nil {
-//			return "", err
-//		}
-//		return "", fmt.Errorf("http response error code %d: %s %s", resp.StatusCode, resp.Status, body)
-//	}
-//	body, err := io.ReadAll(resp.Body)
-//	if err != nil {
-//		return "", err
-//	}
-//	defer resp.Body.Close()
-//	return string(body), nil
-//}
+func (c *omadaClient) GetSiteList() (*GetSiteListResponse, error) {
+	path := fmt.Sprintf("%s/openapi/v1/%s/sites?pageSize=100&page=1", c.baseUrl, c.omadaCId)
+	request, err := http.NewRequest("GET", path, nil)
+
+	siteList := &GetSiteListResponse{}
+	err = c.httpDoWrapped(request, siteList)
+	if err != nil {
+		return nil, err
+	}
+
+	return siteList, nil
+}
+
+type GetSiteListResponse struct {
+	Envelope
+	Result struct {
+		TotalRows   int `json:"totalRows"`
+		CurrentPage int `json:"currentPage"`
+		CurrentSize int `json:"currentSize"`
+		Data        []struct {
+			SiteId   string `json:"siteId"`
+			Name     string `json:"name"`
+			Region   string `json:"region"`
+			TimeZone string `json:"timeZone"`
+			Scenario string `json:"scenario"`
+			Type     int    `json:"type"`
+		} `json:"data"`
+	} `json:"result"`
+}
+
+func (c *omadaClient) httpDoWrapped(request *http.Request, mapToJsonStructType interface{}) error {
+	return c.internalHttpDoWithAuthContextAndJsonMarshalling(request, mapToJsonStructType, 1)
+}
+
+func (c *omadaClient) internalHttpDoWithAuthContextAndJsonMarshalling(request *http.Request, mapToJsonStructType interface{}, tries int) error {
+	if tries > 2 {
+		return fmt.Errorf("could not perform request after refreshing token")
+	}
+	err := c.accessTokenCtx.initialiseAccessTokenIfNeeded(c)
+	if err != nil {
+		return err
+	}
+
+	request.Header.Set("Authorization", fmt.Sprintf("AccessToken=%s", c.accessTokenCtx.getAccessToken()))
+	response, err := c.httpClient.Do(request)
+	defer response.Body.Close()
+	if err != nil {
+		return err
+	}
+	// Should be a 200, even for errors
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected response error: %d %s", response.StatusCode, response.Status)
+	}
+
+	// We need to check the body. An expired token still returns a 200, but the error is in the payload :(
+	allBytes, err := io.ReadAll(response.Body)
+	if err != nil {
+		return err
+	}
+
+	// Check the response envelope for the expired token
+	envelope := &Envelope{}
+	err = json.Unmarshal(allBytes, envelope)
+	if err != nil {
+		return err
+	}
+	if envelope.ErrorCode == -44112 {
+		// Token expired, refresh the token and try again
+		c.accessTokenCtx.resetAccessToken()
+		return c.internalHttpDoWithAuthContextAndJsonMarshalling(request, mapToJsonStructType, tries+1)
+	}
+
+	// Finally, map to JSON
+	err = json.Unmarshal(allBytes, mapToJsonStructType)
+	if err != nil {
+		return err
+	}
+	return nil
+
+}
+
+func (a *accessTokenCtx) getAccessToken() string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.token
+}
+
+func (a *accessTokenCtx) resetAccessToken() {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.tokenState = TokenStateUninitialised
+	a.token = ""
+}
+
+func (a *accessTokenCtx) initialiseAccessTokenIfNeeded(c *omadaClient) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.tokenState == TokenStateUninitialised {
+		token, err := c.GetToken()
+		if err != nil {
+			a.mu.Unlock()
+			return err
+		}
+		if token.ErrorCode != 0 {
+			return fmt.Errorf("token error response: %d: %s", token.ErrorCode, token.Message)
+		}
+		a.tokenState = TokenStateActive
+		a.token = token.Result.AccessToken
+	}
+	return nil
+}
