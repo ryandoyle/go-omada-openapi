@@ -150,8 +150,8 @@ type GetRoleListResponse struct {
 	} `json:"result"`
 }
 
-func (c *omadaClient) GetSiteList() (*GetSiteListResponse, error) {
-	path := fmt.Sprintf("%s/openapi/v1/%s/sites?pageSize=100&page=1", c.baseUrl, c.omadaCId)
+func (c *omadaClient) GetSiteList(page int) (*GetSiteListResponse, error) {
+	path := fmt.Sprintf("%s/openapi/v1/%s/sites?pageSize=100&page=%d", c.baseUrl, c.omadaCId, page)
 	request, err := http.NewRequest("GET", path, nil)
 
 	siteList := &GetSiteListResponse{}
