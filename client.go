@@ -10,7 +10,10 @@ import (
 	"sync"
 )
 
-type omadaClient struct {
+type OmadaClient struct {
+	// For paginated requests
+	PageSize int
+
 	httpClient     *http.Client
 	omadaCId       string
 	baseUrl        string
@@ -26,6 +29,8 @@ const (
 	TokenStateActive                   = 1
 )
 
+const defaultPageSize = 100
+
 type accessTokenCtx struct {
 	token      string
 	tokenState tokenState
@@ -33,12 +38,12 @@ type accessTokenCtx struct {
 	mu *sync.Mutex
 }
 
-func NewClient(baseUrl, omadaCId, clientId, clientSecret string, disableCertVerification bool) *omadaClient {
+func NewClient(baseUrl, omadaCId, clientId, clientSecret string, disableCertVerification bool) *OmadaClient {
 	client := &http.Client{Transport: &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: disableCertVerification},
 	}}
 
-	c := omadaClient{
+	c := OmadaClient{
 		httpClient:   client,
 		omadaCId:     omadaCId,
 		baseUrl:      baseUrl,
@@ -47,6 +52,7 @@ func NewClient(baseUrl, omadaCId, clientId, clientSecret string, disableCertVeri
 		accessTokenCtx: &accessTokenCtx{
 			mu: &sync.Mutex{},
 		},
+		PageSize: defaultPageSize,
 	}
 	return &c
 }
@@ -66,7 +72,7 @@ type AccessTokenResponse struct {
 	} `json:"result"`
 }
 
-func (c *omadaClient) GetToken() (*AccessTokenResponse, error) {
+func (c *OmadaClient) GetToken() (*AccessTokenResponse, error) {
 	path := fmt.Sprintf("%s/openapi/authorize/token?grant_type=client_credentials&client_id=%s&client_secret=%s", c.baseUrl, c.clientId, c.clientSecret)
 	payload := map[string]string{
 		"omadacId": c.omadaCId,
@@ -96,7 +102,7 @@ func (c *omadaClient) GetToken() (*AccessTokenResponse, error) {
 	return tokenResponse, nil
 }
 
-func (c *omadaClient) GetRoleList() (*GetRoleListResponse, error) {
+func (c *OmadaClient) GetRoleList() (*GetRoleListResponse, error) {
 	path := fmt.Sprintf("%s/openapi/v1/%s/roles", c.baseUrl, c.omadaCId)
 	request, err := http.NewRequest("GET", path, nil)
 
@@ -150,8 +156,8 @@ type GetRoleListResponse struct {
 	} `json:"result"`
 }
 
-func (c *omadaClient) GetSiteList(page int) (*GetSiteListResponse, error) {
-	path := fmt.Sprintf("%s/openapi/v1/%s/sites?pageSize=100&page=%d", c.baseUrl, c.omadaCId, page)
+func (c *OmadaClient) GetSiteList(page int) (*GetSiteListResponse, error) {
+	path := fmt.Sprintf("%s/openapi/v1/%s/sites?pageSize=%d&page=%d", c.baseUrl, c.omadaCId, c.PageSize, page)
 	request, err := http.NewRequest("GET", path, nil)
 
 	siteList := &GetSiteListResponse{}
@@ -180,11 +186,11 @@ type GetSiteListResponse struct {
 	} `json:"result"`
 }
 
-func (c *omadaClient) httpDoWrapped(request *http.Request, mapToJsonStructType interface{}) error {
+func (c *OmadaClient) httpDoWrapped(request *http.Request, mapToJsonStructType interface{}) error {
 	return c.internalHttpDoWithAuthContextAndJsonMarshalling(request, mapToJsonStructType, 1)
 }
 
-func (c *omadaClient) internalHttpDoWithAuthContextAndJsonMarshalling(request *http.Request, mapToJsonStructType interface{}, tries int) error {
+func (c *OmadaClient) internalHttpDoWithAuthContextAndJsonMarshalling(request *http.Request, mapToJsonStructType interface{}, tries int) error {
 	if tries > 2 {
 		return fmt.Errorf("could not perform request after refreshing token")
 	}
@@ -244,7 +250,7 @@ func (a *accessTokenCtx) resetAccessToken() {
 	a.token = ""
 }
 
-func (a *accessTokenCtx) initialiseAccessTokenIfNeeded(c *omadaClient) error {
+func (a *accessTokenCtx) initialiseAccessTokenIfNeeded(c *OmadaClient) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if a.tokenState == TokenStateUninitialised {

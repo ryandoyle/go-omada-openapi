@@ -203,11 +203,6 @@ func TestOmadaClient_GetSiteList_ReturnsAValidSiteList(t *testing.T) {
 	assert.Equal(t, siteList.Result.Data[0].Type, 0)
 }
 
-func TestOmadaClient_GetSiteList_ReturnsAValidSiteListPagination(t *testing.T) {
-	t.Skipf("TODO: either paginate here, or have another layer do the pagination and test for it")
-
-}
-
 func TestNewClient_TokenRefreshingLogic_RefreshesWhenTheTokenIsExpired(t *testing.T) {
 	mockMux := http.NewServeMux()
 	mockMux.HandleFunc("/openapi/authorize/token", func(w http.ResponseWriter, r *http.Request) { mockValidTokenResponse(t, w, r) })
