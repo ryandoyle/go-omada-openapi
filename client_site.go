@@ -57,3 +57,21 @@ type SiteEntity struct {
 	Address   string  `json:"address"`
 	Type      int     `json:"type"`
 }
+
+func (c *OmadaClient) GetScenarioList() (*GetScenarioListResponse, error) {
+	path := fmt.Sprintf("%s/openapi/v1/%s/scenarios", c.baseUrl, c.omadaCId)
+	request, err := http.NewRequest("GET", path, nil)
+
+	scenario := &GetScenarioListResponse{}
+	err = c.httpDoWrapped(request, scenario)
+	if err != nil {
+		return nil, err
+	}
+
+	return scenario, nil
+}
+
+type GetScenarioListResponse struct {
+	EnvelopeResponse
+	Result []string `json:"result"`
+}

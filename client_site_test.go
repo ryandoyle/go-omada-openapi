@@ -111,3 +111,28 @@ func TestOmadaClient_GetSiteInfo_ReturnsAValidSiteInfo(t *testing.T) {
 	assert.Equal(t, siteInfo.Result.Address, "123 fake street")
 	assert.Equal(t, siteInfo.Result.Type, 0)
 }
+
+func TestOmadaClient_GetScenarioList_ReturnsAValidScenarioList(t *testing.T) {
+	mockMux := http.NewServeMux()
+	mockMux.HandleFunc("/openapi/authorize/token", func(w http.ResponseWriter, r *http.Request) { mockValidTokenResponse(t, w, r) })
+	mockMux.HandleFunc("/openapi/v1/my-cid/scenarios", func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "AccessToken=my-token", r.Header.Get("Authorization"))
+		_, err := w.Write([]byte(`{
+		  "errorCode": 0,
+		  "msg": "Success.",
+		  "result": ["Hotel", "Shopping Mall"]
+		}`))
+		assert.NoError(t, err)
+	})
+	server := httptest.NewServer(mockMux)
+	defer server.Close()
+
+	c := NewClient(server.URL, "my-cid", "my-client-id", "my-client-secret", true)
+	siteInfo, err := c.GetScenarioList()
+
+	assert.NoError(t, err)
+	assert.Equal(t, siteInfo.ErrorCode, 0)
+	assert.Equal(t, siteInfo.Message, "Success.")
+	assert.Contains(t, siteInfo.Result, "Hotel")
+	assert.Contains(t, siteInfo.Result, "Shopping Mall")
+}
