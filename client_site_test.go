@@ -28,6 +28,9 @@ func TestOmadaClient_GetSiteList_ReturnsAValidSiteList(t *testing.T) {
 				"region": "United States",
 				"timeZone": "UTC",
 				"scenario": "Hotel",
+				"longitude": 123.345,
+				"latitude": 55.55,
+				"address": "123 fake street",
 				"type": 0
 			  },
 			  {
@@ -60,5 +63,8 @@ func TestOmadaClient_GetSiteList_ReturnsAValidSiteList(t *testing.T) {
 	assert.Equal(t, siteList.Result.Data[0].Region, "United States")
 	assert.Equal(t, siteList.Result.Data[0].TimeZone, "UTC")
 	assert.Equal(t, siteList.Result.Data[0].Scenario, "Hotel")
+	assert.Equal(t, siteList.Result.Data[0].Longitude, 123.345)
+	assert.Equal(t, siteList.Result.Data[0].Latitude, 55.55)
+	assert.Equal(t, siteList.Result.Data[0].Address, "123 fake street")
 	assert.Equal(t, siteList.Result.Data[0].Type, 0)
 }

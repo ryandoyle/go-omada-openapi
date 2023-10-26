@@ -25,12 +25,15 @@ type GetSiteListResponse struct {
 		CurrentPage int `json:"currentPage"`
 		CurrentSize int `json:"currentSize"`
 		Data        []struct {
-			SiteId   string `json:"siteId"`
-			Name     string `json:"name"`
-			Region   string `json:"region"`
-			TimeZone string `json:"timeZone"`
-			Scenario string `json:"scenario"`
-			Type     int    `json:"type"`
+			SiteId    string  `json:"siteId"`
+			Name      string  `json:"name"`
+			Region    string  `json:"region"`
+			TimeZone  string  `json:"timeZone"`
+			Scenario  string  `json:"scenario"`
+			Longitude float64 `json:"longitude"`
+			Latitude  float64 `json:"latitude"`
+			Address   string  `json:"address"`
+			Type      int     `json:"type"`
 		} `json:"data"`
 	} `json:"result"`
 }
