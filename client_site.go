@@ -18,22 +18,42 @@ func (c *OmadaClient) GetSiteList(page int) (*GetSiteListResponse, error) {
 	return siteList, nil
 }
 
+func (c *OmadaClient) GetSiteInfo(site string) (*GetSiteInfoResponse, error) {
+	path := fmt.Sprintf("%s/openapi/v1/%s/sites/%s", c.baseUrl, c.omadaCId, site)
+	request, err := http.NewRequest("GET", path, nil)
+
+	siteInfo := &GetSiteInfoResponse{}
+	err = c.httpDoWrapped(request, siteInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	return siteInfo, nil
+}
+
 type GetSiteListResponse struct {
 	EnvelopeResponse
 	Result struct {
-		TotalRows   int `json:"totalRows"`
-		CurrentPage int `json:"currentPage"`
-		CurrentSize int `json:"currentSize"`
-		Data        []struct {
-			SiteId    string  `json:"siteId"`
-			Name      string  `json:"name"`
-			Region    string  `json:"region"`
-			TimeZone  string  `json:"timeZone"`
-			Scenario  string  `json:"scenario"`
-			Longitude float64 `json:"longitude"`
-			Latitude  float64 `json:"latitude"`
-			Address   string  `json:"address"`
-			Type      int     `json:"type"`
-		} `json:"data"`
+		TotalRows   int          `json:"totalRows"`
+		CurrentPage int          `json:"currentPage"`
+		CurrentSize int          `json:"currentSize"`
+		Data        []SiteEntity `json:"data"`
 	} `json:"result"`
+}
+
+type GetSiteInfoResponse struct {
+	EnvelopeResponse
+	Result SiteEntity `json:"result"`
+}
+
+type SiteEntity struct {
+	SiteId    string  `json:"siteId"`
+	Name      string  `json:"name"`
+	Region    string  `json:"region"`
+	TimeZone  string  `json:"timeZone"`
+	Scenario  string  `json:"scenario"`
+	Longitude float64 `json:"longitude"`
+	Latitude  float64 `json:"latitude"`
+	Address   string  `json:"address"`
+	Type      int     `json:"type"`
 }

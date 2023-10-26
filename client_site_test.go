@@ -68,3 +68,46 @@ func TestOmadaClient_GetSiteList_ReturnsAValidSiteList(t *testing.T) {
 	assert.Equal(t, siteList.Result.Data[0].Address, "123 fake street")
 	assert.Equal(t, siteList.Result.Data[0].Type, 0)
 }
+
+func TestOmadaClient_GetSiteInfo_ReturnsAValidSiteInfo(t *testing.T) {
+	mockMux := http.NewServeMux()
+	mockMux.HandleFunc("/openapi/authorize/token", func(w http.ResponseWriter, r *http.Request) { mockValidTokenResponse(t, w, r) })
+	mockMux.HandleFunc("/openapi/v1/my-cid/sites/me-site", func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "AccessToken=my-token", r.Header.Get("Authorization"))
+		_, err := w.Write([]byte(`{
+		  "errorCode": 0,
+		  "msg": "Success.",
+		  "result": 
+		  	{
+				"siteId": "65335c80b0dd10259f9ec5b",
+				"name": "me-site",
+				"region": "United States",
+				"timeZone": "UTC",
+				"scenario": "Hotel",
+				"longitude": 123.345,
+				"latitude": 55.55,
+				"address": "123 fake street",
+				"type": 0
+			}
+		}`))
+		assert.NoError(t, err)
+	})
+	server := httptest.NewServer(mockMux)
+	defer server.Close()
+
+	c := NewClient(server.URL, "my-cid", "my-client-id", "my-client-secret", true)
+	siteInfo, err := c.GetSiteInfo("me-site")
+
+	assert.NoError(t, err)
+	assert.Equal(t, siteInfo.ErrorCode, 0)
+	assert.Equal(t, siteInfo.Message, "Success.")
+	assert.Equal(t, siteInfo.Result.SiteId, "65335c80b0dd10259f9ec5b")
+	assert.Equal(t, siteInfo.Result.Name, "me-site")
+	assert.Equal(t, siteInfo.Result.Region, "United States")
+	assert.Equal(t, siteInfo.Result.TimeZone, "UTC")
+	assert.Equal(t, siteInfo.Result.Scenario, "Hotel")
+	assert.Equal(t, siteInfo.Result.Longitude, 123.345)
+	assert.Equal(t, siteInfo.Result.Latitude, 55.55)
+	assert.Equal(t, siteInfo.Result.Address, "123 fake street")
+	assert.Equal(t, siteInfo.Result.Type, 0)
+}
