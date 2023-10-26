@@ -136,3 +136,28 @@ func TestOmadaClient_GetScenarioList_ReturnsAValidScenarioList(t *testing.T) {
 	assert.Contains(t, siteInfo.Result, "Hotel")
 	assert.Contains(t, siteInfo.Result, "Shopping Mall")
 }
+
+func TestOmadaClient_GetSiteDeviceAccountSetting_ReturnsAValidSiteDeviceAccountSetting(t *testing.T) {
+	mockMux := http.NewServeMux()
+	mockMux.HandleFunc("/openapi/authorize/token", func(w http.ResponseWriter, r *http.Request) { mockValidTokenResponse(t, w, r) })
+	mockMux.HandleFunc("/openapi/v1/my-cid/sites/my-site/device-account", func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "AccessToken=my-token", r.Header.Get("Authorization"))
+		_, err := w.Write([]byte(`{
+		  "errorCode": 0,
+		  "msg": "Success.",
+		  "result": {"username": "me-user", "password": "me-password"}
+		}`))
+		assert.NoError(t, err)
+	})
+	server := httptest.NewServer(mockMux)
+	defer server.Close()
+
+	c := NewClient(server.URL, "my-cid", "my-client-id", "my-client-secret", true)
+	deviceAccountSetting, err := c.GetSiteDeviceAccountSetting("my-site")
+
+	assert.NoError(t, err)
+	assert.Equal(t, deviceAccountSetting.ErrorCode, 0)
+	assert.Equal(t, deviceAccountSetting.Message, "Success.")
+	assert.Equal(t, deviceAccountSetting.Result.Username, "me-user")
+	assert.Equal(t, deviceAccountSetting.Result.Password, "me-password")
+}

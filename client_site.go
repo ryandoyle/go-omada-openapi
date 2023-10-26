@@ -75,3 +75,24 @@ type GetScenarioListResponse struct {
 	EnvelopeResponse
 	Result []string `json:"result"`
 }
+
+func (c *OmadaClient) GetSiteDeviceAccountSetting(siteId string) (*GetSiteDeviceAccountSettingResponse, error) {
+	path := fmt.Sprintf("%s/openapi/v1/%s/sites/%s/device-account", c.baseUrl, c.omadaCId, siteId)
+	request, err := http.NewRequest("GET", path, nil)
+
+	scenario := &GetSiteDeviceAccountSettingResponse{}
+	err = c.httpDoWrapped(request, scenario)
+	if err != nil {
+		return nil, err
+	}
+
+	return scenario, nil
+}
+
+type GetSiteDeviceAccountSettingResponse struct {
+	EnvelopeResponse
+	Result struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	} `json:"result"`
+}
