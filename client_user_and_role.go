@@ -30,15 +30,13 @@ func (c *OmadaClient) GetRoleInfo(roleId string) (*GetRoleInfoResponse, error) {
 }
 
 type GetRoleListResponse struct {
-	ErrorCode int                      `json:"errorCode"`
-	Message   string                   `json:"msg"`
-	Result    []ControllerRoleDetailVO `json:"result"`
+	EnvelopeResponse
+	Result []ControllerRoleDetailVO `json:"result"`
 }
 
 type GetRoleInfoResponse struct {
-	ErrorCode int                    `json:"errorCode"`
-	Message   string                 `json:"msg"`
-	Result    ControllerRoleDetailVO `json:"result"`
+	EnvelopeResponse
+	Result ControllerRoleDetailVO `json:"result"`
 }
 
 type ControllerRoleDetailVO struct {

@@ -19,7 +19,7 @@ func (c *OmadaClient) GetSiteList(page int) (*GetSiteListResponse, error) {
 }
 
 type GetSiteListResponse struct {
-	Envelope
+	EnvelopeResponse
 	Result struct {
 		TotalRows   int `json:"totalRows"`
 		CurrentPage int `json:"currentPage"`

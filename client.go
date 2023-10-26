@@ -57,13 +57,13 @@ func NewClient(baseUrl, omadaCId, clientId, clientSecret string, disableCertVeri
 	return &c
 }
 
-type Envelope struct {
+type EnvelopeResponse struct {
 	ErrorCode int    `json:"errorCode"`
 	Message   string `json:"msg"`
 }
 
 type AccessTokenResponse struct {
-	Envelope
+	EnvelopeResponse
 	Result struct {
 		AccessToken  string `json:"accessToken"`
 		TokenType    string `json:"tokenType"`
@@ -133,7 +133,7 @@ func (c *OmadaClient) internalHttpDoWithAuthContextAndJsonMarshalling(request *h
 	}
 
 	// Check the response envelope for the expired token
-	envelope := &Envelope{}
+	envelope := &EnvelopeResponse{}
 	err = json.Unmarshal(allBytes, envelope)
 	if err != nil {
 		return err
