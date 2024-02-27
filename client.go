@@ -172,7 +172,6 @@ func (a *accessTokenCtx) initialiseAccessTokenIfNeeded(c *OmadaClient) error {
 	if a.tokenState == TokenStateUninitialised {
 		token, err := c.GetToken()
 		if err != nil {
-			a.mu.Unlock()
 			return err
 		}
 		if token.ErrorCode != 0 {
