@@ -117,10 +117,10 @@ func (c *OmadaClient) internalHttpDoWithAuthContextAndJsonMarshalling(request *h
 
 	request.Header.Set("Authorization", fmt.Sprintf("AccessToken=%s", c.accessTokenCtx.getAccessToken()))
 	response, err := c.httpClient.Do(request)
-	defer response.Body.Close()
 	if err != nil {
 		return err
 	}
+	defer response.Body.Close()
 	// Should be a 200, even for errors
 	if response.StatusCode != http.StatusOK {
 		return fmt.Errorf("unexpected response error: %d %s", response.StatusCode, response.Status)
